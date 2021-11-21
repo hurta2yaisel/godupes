@@ -29,27 +29,8 @@ func GetPath() string {
 	return path
 }
 
-func HashFile(filename string) string {
-	var hash string
-	file, err := os.Open(filename)
-	if err != nil {
-		return ""
-	}
-	defer file.Close()
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, file); err != nil {
-		log.Fatal(err)
-	}
-	hash = fmt.Sprintf("%x", hasher.Sum(nil))
-	return hash
-}
-
-func FindDupes(path string) {
-	log.Printf("Scanning %s...\n\n", path)
-
+func WalkPath(path string) map[int64][]string {
 	file_sizes := make(map[int64][]string)
-	hash_map := make(map[string][]string)
-
 	err := filepath.Walk(path, func(filename string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Println(err)
@@ -71,6 +52,24 @@ func FindDupes(path string) {
 		log.Println(err)
 	}
 
+	return file_sizes
+}
+
+func HashFile(filename string) string {
+	file, err := os.Open(filename)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		log.Fatal(err)
+	}
+	return fmt.Sprintf("%x", hasher.Sum(nil))
+}
+
+func BuildHashMap(file_sizes map[int64][]string) map[string][]string {
+	hash_map := make(map[string][]string)
 	for file_size, files := range file_sizes {
 		if len(files) > 1 {
 			for _, filename := range files {
@@ -85,6 +84,14 @@ func FindDupes(path string) {
 			}
 		}
 	}
+	return hash_map
+}
+
+func FindDupes(path string) {
+	log.Printf("Scanning %s\n\n", path)
+	file_sizes := WalkPath(path)
+	hash_map := BuildHashMap(file_sizes)
+
 	var duplicates int
 	for _, files := range hash_map {
 		len_files := len(files)
